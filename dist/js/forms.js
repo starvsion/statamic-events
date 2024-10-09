@@ -38002,7 +38002,7 @@ webpackContext.id = "./resources/svg sync recursive ./!./!./node_modules/html-lo
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-module.exports = __webpack_require__(/*! /Users/justinkimbrell/Code/statamic-events/resources/js/forms.js */"./resources/js/forms.js");
+module.exports = __webpack_require__(/*! /home/shuyi/personal/statamic-events/resources/js/forms.js */"./resources/js/forms.js");
 
 
 /***/ })
