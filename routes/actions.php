@@ -13,12 +13,13 @@ Route::get('feed', function() {
         'end' => request()->end,
         'ttl' => request()->ttl
     ]));
-    
+
     // Map the entries into arrays.
     $events = $tag->index()->map(function($entry) {
         return array_merge($entry->data()->toArray(), $entry->supplements()->toArray(), [
             'locale' => $entry->locale(),
-            'url' => $entry->url()
+            'url' => $entry->url(),
+            'collection' => 'events',
         ]);
     });
 
