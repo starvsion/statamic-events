@@ -11,7 +11,9 @@ Route::get('feed', function() {
     $tag->setParameters(array_filter([
         'start' => request()->start,
         'end' => request()->end,
-        'ttl' => request()->ttl
+        'ttl' => request()->ttl,
+        'collection' => 'events',
+        'field' => 'recurrence_rule',
     ]));
 
     // Map the entries into arrays.
@@ -19,7 +21,6 @@ Route::get('feed', function() {
         return array_merge($entry->data()->toArray(), $entry->supplements()->toArray(), [
             'locale' => $entry->locale(),
             'url' => $entry->url(),
-            'collection' => 'events',
         ]);
     });
 
