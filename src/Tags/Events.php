@@ -10,6 +10,7 @@ use RRule\RRule;
 use Statamic\Entries\EntryCollection;
 use Statamic\Facades\Collection as CollectionAPI;
 use Statamic\Tags\Collection\Collection;
+use Statamic\Entries\Entry;
 
 class Events extends Collection
 {
@@ -20,18 +21,9 @@ class Events extends Collection
      */
     public function index()
     {
-        if(!$this->params->get('collection')) {
-            throw new InvalidArgumentException(
-                'The "collection" parameter is required for the {{ events }} tag.'
-            );
-        }
+        $field = $this->params->get('field', 'recurrence_rule');
+        $collection = $this->params->get('collection', 'events');
 
-        if(!$field = $this->params->get('field')) {
-            throw new InvalidArgumentException(
-                'The "field" parameter is required for the {{ events }} tag.'
-            );
-        }
-        
         $beginsAtField = sprintf('%s_begins_at', $field);
         $endsAtField = sprintf('%s_ends_at', $field);
 
@@ -43,7 +35,12 @@ class Events extends Collection
 
         $events = $events->map(
             $this->mapRecurrenceRule($field, $beginsAtField, $endsAtField)
-        );
+        )->map(function (Entry $event) use($beginsAtField, $endsAtField) {
+                    $event->supplements()->put($beginsAtField, Carbon::parse($event->get('start_date')));
+                    $event->supplements()->put($endsAtField, Carbon::parse($event->get('end_date')));
+
+                    return $event;
+                });
 
         $events = $this->mergeOccurrences($events, $field)
             ->filter($this->filterFuture($beginsAtField, $endsAtField))
@@ -56,7 +53,7 @@ class Events extends Collection
                 $this->params->get('total', $this->params->get('limit', 100))
             )
             ->values();
-        
+
         if(is_array($results)) {
             return array_merge($results, [
                 $this->params->get('as') => $events,
@@ -66,14 +63,14 @@ class Events extends Collection
 
         return $events;
     }
-    
+
 
     public function byDate()
     {
         return $this->index()
             ->groupBy(function($entry) {
                 $beginsAtField = $this->params->get('start_field', 'start_date');
-                
+
                 $group_by = $this->params->get('group_by', $beginsAtField);
 
                 $value = $entry->supplements()->get($group_by) ?: $entry->get($group_by);
@@ -92,7 +89,7 @@ class Events extends Collection
     public function details()
     {
         $field = $this->params->get('field', 'recurrence_rule');
-        
+
         $collection = CollectionAPI::find($this->params->get('collection', 'events'));
 
         $query = $collection->queryEntries();
@@ -108,7 +105,7 @@ class Events extends Collection
         if($entry = $query->first()) {
             $beginsAtField = $this->params->get('start_field', 'start_date');
             $endsAtField = $this->params->get('end_field', 'end_date');
-    
+
             return $this->mapRecurrenceRule($beginsAtField, $endsAtField, $field)($entry);
         }
     }
@@ -118,7 +115,7 @@ class Events extends Collection
         if(!$this->params->get('start')) {
             $this->params->put('start', 'now');
         }
-        
+
         return $this->index()->slice(0, $this->params->get('total', 1));
     }
 
@@ -164,7 +161,7 @@ class Events extends Collection
             return $entry->supplements()->get($dateField)->timestamp;
         };
     }
-    
+
     protected function mapRecurrenceRule(string $field, string $beginsAtField, string $endsAtField)
     {
         return function($entry) use ($field, $beginsAtField, $endsAtField) {
@@ -188,18 +185,18 @@ class Events extends Collection
             if($endsAtTime = Arr::get($data, 'ends_at.time')) {
                 $endsAt->setTimeFromTimeString($endsAtTime);
             }
-            
+
             $entry->supplements()->put($endsAtField, $endsAt);
 
             $entry->supplements()->put(
                 sprintf('%s_same_day', $field), $beginsAt->format('Ymd') == $endsAt->format('Ymd')
             );
-            
+
             // Get the diff in seconds from the start and end date
             $diff = $beginsAt->diffInSeconds($endsAt);
 
             $entry->supplements()->put(sprintf('%s_diff_seconds', $field), $diff);
-            
+
             if(Arr::get($data, 'recurring')) {
                 $rrule = new RRule(Arr::get($data, 'rrule'), $beginsAt);
 
@@ -233,7 +230,7 @@ class Events extends Collection
             return $entry;
         };
     }
-    
+
     protected function filterFuture(string $beginsAtField, string $endsAtField) {
         return function($entry) use ($beginsAtField, $endsAtField) {
             $future = $this->params->get('future');
@@ -248,14 +245,14 @@ class Events extends Collection
             return true;
         };
     }
-    
+
     protected function filterByTtlParam(string $dateField)
     {
         return function($entry) use ($dateField) {
             if($ttl = $this->params->get('ttl')) {
                 return $entry->get($dateField) < now()->add($ttl);
             }
-            
+
             return true;
         };
     }
